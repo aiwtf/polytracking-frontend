@@ -13,8 +13,13 @@ export default function Dashboard() {
   const TEST_KEY = process.env.NEXT_PUBLIC_RUN_TEST_KEY;
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://polytracking-backend-tv7j.onrender.com';
   const sendTest = async () => {
-    if (!TEST_KEY) return alert('No NEXT_PUBLIC_RUN_TEST_KEY provided.');
-    const res = await fetch(`${API_BASE}/api/test_alert?key=${TEST_KEY}`, { method: 'POST' });
+    let key = TEST_KEY || (typeof window !== 'undefined' ? localStorage.getItem('RUN_TEST_KEY') || '' : '');
+    if (!key && typeof window !== 'undefined') {
+      key = window.prompt('請輸入 RUN_SECRET_KEY 用於測試警報：') || '';
+      if (key) localStorage.setItem('RUN_TEST_KEY', key);
+    }
+    if (!key) return alert('未提供測試用密鑰');
+    const res = await fetch(`${API_BASE}/api/test_alert?key=${encodeURIComponent(key)}`, { method: 'POST' });
     if (res.ok) alert('✅ 測試成功'); else alert('❌ 測試失敗');
   };
 
