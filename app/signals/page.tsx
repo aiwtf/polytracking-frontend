@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { getSmartMoneyTrades, SmartMoneyTrade } from '@/lib/api/polymarket';
 
 async function subscribeFree(chatId: string) {
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://polytracking-backend-tv7j.onrender.com';
   const url = `${API_BASE}/api/subscribe_tg?chat_id=${encodeURIComponent(chatId)}&mode=free`;
   const res = await fetch(url, { method: 'POST' });
   if (!res.ok) throw new Error('subscribe failed');

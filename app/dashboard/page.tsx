@@ -11,7 +11,7 @@ export default function Dashboard() {
   const [selectedWallet, setSelectedWallet] = useState<string | undefined>(undefined);
 
   const TEST_KEY = process.env.NEXT_PUBLIC_RUN_TEST_KEY;
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://polytracking-backend-tv7j.onrender.com';
   const sendTest = async () => {
     if (!TEST_KEY) return alert('No NEXT_PUBLIC_RUN_TEST_KEY provided.');
     const res = await fetch(`${API_BASE}/api/test_alert?key=${TEST_KEY}`, { method: 'POST' });

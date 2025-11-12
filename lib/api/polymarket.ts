@@ -1,4 +1,5 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+// Default to deployed backend if env not provided (prevents localhost calls on Vercel)
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://polytracking-backend-tv7j.onrender.com";
 
 export async function getStatus() {
   try {

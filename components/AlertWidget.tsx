@@ -7,7 +7,7 @@ export default function AlertWidget({ onOpenWallet }: { onOpenWallet?: (wallet: 
 
   useEffect(() => {
     let idCounter = 0;
-    const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  const base = process.env.NEXT_PUBLIC_API_URL || 'https://polytracking-backend-tv7j.onrender.com';
     const wsUrl = base.replace('http', 'ws') + '/ws/alerts';
     let ws: WebSocket | null = null;
     try {
