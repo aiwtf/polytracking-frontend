@@ -4,6 +4,9 @@ interface WalletCardProps {
     roi: number;
     volume: number;
     profit: number;
+    smartscore?: number;
+    insider?: boolean;
+    hft?: boolean;
   };
 }
 
@@ -12,10 +15,25 @@ export default function WalletCard({ data }: WalletCardProps) {
   
   return (
     <div className="bg-slate-800 p-4 rounded-2xl shadow-md hover:shadow-lg transition-shadow">
-      <p className="text-slate-400 text-sm mb-2 font-mono">{data.wallet}</p>
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-slate-400 text-sm mb-2 font-mono break-all">
+          {data.wallet}
+        </p>
+        <div className="flex items-center gap-2">
+          {data.insider && (
+            <span className="px-2 py-0.5 rounded-full text-xs bg-red-900/60 text-red-300 border border-red-700/50">INSIDER</span>
+          )}
+          {data.hft && (
+            <span className="px-2 py-0.5 rounded-full text-xs bg-amber-900/60 text-amber-300 border border-amber-700/50">HFT</span>
+          )}
+        </div>
+      </div>
       <h2 className={`text-xl font-bold ${data.roi > 0 ? 'text-green-400' : 'text-red-400'}`}>
         ROI: {data.roi}%
       </h2>
+      {typeof data.smartscore === 'number' && (
+        <p className="text-slate-300 mt-1">Score: {data.smartscore.toFixed(1)}</p>
+      )}
       <p className="text-slate-300 mt-2">利潤: {data.profit.toFixed(2)} USDC</p>
       <p className="text-slate-300">投注量: {data.volume.toFixed(2)} USDC</p>
       {isAbnormal && (

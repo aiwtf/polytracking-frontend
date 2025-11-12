@@ -1,94 +1,48 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { getStatus, getHealth } from "@/lib/api/polymarket";
-import WalletCard from "@/components/WalletCard";
-import ChartROI from "@/components/ChartROI";
-import AlertBox from "@/components/AlertBox";
-
-interface WalletData {
-  wallet: string;
-  roi: number;
-  volume: number;
-  profit: number;
-}
+import { useState } from "react";
+import StatsCards from "@/components/StatsCards";
+import SmartMoneyTable from "@/components/SmartMoneyTable";
+import SmartMoneyFeed from "@/components/SmartMoneyFeed";
+import SmartSignalPanel from "@/components/SmartSignalPanel";
+import AlertWidget from "@/components/AlertWidget";
 
 export default function Dashboard() {
-  const [status, setStatus] = useState<any>(null);
-  const [health, setHealth] = useState<{ ok: boolean } | null>(null);
-  const [wallets, setWallets] = useState<WalletData[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [selectedWallet, setSelectedWallet] = useState<string | undefined>(undefined);
 
-  useEffect(() => {
-    async function fetchData() {
-      setLoading(true);
-      const s = await getStatus();
-      const h = await getHealth();
-      setStatus(s);
-      setHealth(h);
-
-      // 模擬假資料（後端 API 接好後再改成真實 fetch）
-      setWallets([
-        { wallet: "0xa2f3c8...", roi: 241, volume: 3120, profit: 312 },
-        { wallet: "0x8dde41...", roi: 190, volume: 2150, profit: 215 },
-        { wallet: "0x91bc7f...", roi: 512, volume: 8500, profit: 870 },
-        { wallet: "0x4f82a1...", roi: -145, volume: 1200, profit: -174 },
-        { wallet: "0xc3d921...", roi: 85, volume: 980, profit: 83 },
-      ]);
-      
-      setLoading(false);
-    }
-    fetchData();
-    
-    // 每 30 秒刷新一次數據
-    const interval = setInterval(fetchData, 30000);
-    return () => clearInterval(interval);
-  }, []);
+  const TEST_KEY = process.env.NEXT_PUBLIC_RUN_TEST_KEY;
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  const sendTest = async () => {
+    if (!TEST_KEY) return alert('No NEXT_PUBLIC_RUN_TEST_KEY provided.');
+    const res = await fetch(`${API_BASE}/api/test_alert?key=${TEST_KEY}`, { method: 'POST' });
+    if (res.ok) alert('✅ 測試成功'); else alert('❌ 測試失敗');
+  };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-8">
-      <div className="max-w-7xl mx-auto">
-        <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
-          🚀 PolyTracking 智能錢包分析系統
-        </h1>
-        <p className="text-slate-400 mb-6 text-lg">
-          從 Polymarket 自動分析錢包 ROI、異常行為與 AI 投注集群。
-        </p>
+    <div className="min-h-screen bg-[#1A1B2F] text-slate-100 p-6">
+      <div className="max-w-7xl mx-auto space-y-4">
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">SmartMoney Intelligence</h1>
+          <button onClick={sendTest} className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1 rounded">測試 Telegram 警報</button>
+        </div>
 
-        {health && <AlertBox healthy={health.ok} />}
+        <StatsCards />
 
-        {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-1">
+            <SmartMoneyTable onSelect={setSelectedWallet} />
           </div>
-        ) : (
-          <>
-            <div className="grid md:grid-cols-3 gap-4 mt-6">
-              {wallets.map((w, i) => (
-                <WalletCard key={i} data={w} />
-              ))}
-            </div>
-
-            <div className="mt-10">
-              <ChartROI wallets={wallets} />
-            </div>
-          </>
-        )}
-
-        <footer className="mt-10 text-sm text-slate-500 border-t border-slate-800 pt-6">
-          <div className="flex items-center justify-between">
-            <span>🧠 Powered by PolyTracking AI</span>
-            <a 
-              href="https://t.me/Polytracking" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="underline hover:text-blue-400 transition-colors"
-            >
-              Telegram 頻道 →
-            </a>
+          <div className="lg:col-span-1">
+            <SmartMoneyFeed onSelect={setSelectedWallet} />
           </div>
-        </footer>
+          <div className="lg:col-span-1">
+            <SmartSignalPanel wallet={selectedWallet} onClose={() => setSelectedWallet(undefined)} />
+          </div>
+        </div>
+
+        <footer className="text-sm text-slate-400 pt-4">自動刷新 30 秒 • Telegram: @Polytracking</footer>
       </div>
+      <AlertWidget onOpenWallet={setSelectedWallet} />
     </div>
   );
 }
