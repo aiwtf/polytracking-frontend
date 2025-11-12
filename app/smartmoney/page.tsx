@@ -25,7 +25,19 @@ export default function SmartMoneyPage() {
     setLoading(true);
     try {
       const trades = await getSmartMoneyTrades(50);
-      setRows(trades);
+      // Map API SmartMoneyTrade -> local TradeRow shape
+      const mapped = trades.map((t: any) => ({
+        trader: t.wallet,
+        alias: undefined,
+        market: t.market,
+        amount_usdc: t.amount_usdc,
+        side: t.side,
+        timestamp: t.timestamp,
+        smartscore: t.smartscore,
+        insider_flag: t.insider_flag,
+        entry_timing_score: t.entry_timing_score,
+      }));
+      setRows(mapped);
     } catch (e) {
       console.error(e);
     } finally {
@@ -101,7 +113,7 @@ export default function SmartMoneyPage() {
             </table>
           </div>
         )}
-        <footer className="mt-8 text-xs text-slate-500">資料來源 /api/trades/recent • 自動刷新 • 實驗性頁面</footer>
+        <footer className="mt-8 text-xs text-slate-500">資料來源 /api/smartmoney • 自動刷新 • 實驗性頁面</footer>
       </div>
     </div>
   );
