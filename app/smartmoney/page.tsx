@@ -1,120 +1,122 @@
 "use client";
-
 import { useEffect, useState } from "react";
-import { getSmartMoneyTrades } from "@/lib/api/polymarket";
-import { formatAddress, formatNumber } from "@/lib/utils/format";
+import { getLeaderboard, getSmartMoneyTrades, getWalletDetail, getRecentTrades } from "@/lib/api/polymarket";
 
-interface TradeRow {
-  trader: string;
-  alias?: string;
-  market: string;
-  amount_usdc: number;
-  side: string;
-  timestamp: string;
-  smartscore?: number;
-  insider_flag?: boolean;
-  entry_timing_score?: number;
-}
+interface LeaderRow { rank: number; wallet: string; smartscore: number; win_rate: number; avg_roi: number; entry_timing: number; recent_volume: number; }
+interface Trade { wallet: string; market: string; amount_usdc: number; side: string; timestamp: string; smartscore?: number; }
+interface WalletDetail { wallet: string; roiHistory: { date: string; roi: number; trades: number; win_rate: number; volume: number; }[]; recentTrades: { market: string; side: string; amount: number; priceBefore: number; priceAfter: number; timestamp: string; }[]; }
 
 export default function SmartMoneyPage() {
-  const [rows, setRows] = useState<TradeRow[]>([]);
+  const [leaderboard, setLeaderboard] = useState<LeaderRow[]>([]);
+  const [trades, setTrades] = useState<Trade[]>([]);
+  const [recent, setRecent] = useState<Trade[]>([]);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [walletDetail, setWalletDetail] = useState<WalletDetail | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // fetch smart money trades (already filtered by top 100 leaderboard)
-  async function load() {
+  async function loadAll() {
     setLoading(true);
     try {
-      const trades = await getSmartMoneyTrades(50);
-      // Map API SmartMoneyTrade -> local TradeRow shape
-      const mapped = trades.map((t: any) => ({
-        trader: t.wallet,
-        alias: undefined,
-        market: t.market,
-        amount_usdc: t.amount_usdc,
-        side: t.side,
-        timestamp: t.timestamp,
-        smartscore: t.smartscore,
-        insider_flag: t.insider_flag,
-        entry_timing_score: t.entry_timing_score,
-      }));
-      setRows(mapped);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
+      const [lb, sm, rc] = await Promise.all([
+        getLeaderboard(50),
+        getSmartMoneyTrades(50),
+        getRecentTrades(50),
+      ]);
+      setLeaderboard(lb);
+      setTrades(sm);
+      setRecent(rc.map((r: any) => ({ ...r })));
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
   }
 
+  useEffect(() => { loadAll(); const id = setInterval(loadAll, 60000); return () => clearInterval(id); }, []);
+
   useEffect(() => {
-    load();
-    const id = setInterval(load, 60000); // refresh every 60s
-    return () => clearInterval(id);
-  }, []);
+    if (!selected) { setWalletDetail(null); return; }
+    (async () => { const data = await getWalletDetail(selected); setWalletDetail(data); })();
+  }, [selected]);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-6">
-      <div className="max-w-6xl mx-auto">
-        <h1 className="text-2xl font-bold mb-4">🧠 聰明錢最新動態</h1>
-        <p className="text-slate-400 mb-6">顯示最近交易的可能聰明錢行為（每 60 秒自動刷新）</p>
-        {loading && rows.length === 0 && (
-          <div className="py-10 text-center text-slate-400">Loading...</div>
-        )}
-        {!loading && rows.length === 0 && (
-          <div className="py-10 text-center text-slate-400">No data</div>
-        )}
-        {rows.length > 0 && (
-          <div className="overflow-x-auto bg-slate-900 rounded-lg border border-slate-800">
-            <table className="min-w-full text-sm">
-              <thead className="text-slate-400 border-b border-slate-800">
+    <div className="min-h-screen bg-slate-950 text-slate-100 p-4 md:p-6">
+      <div className="max-w-7xl mx-auto grid md:grid-cols-12 gap-6">
+        <div className="md:col-span-4 space-y-4">
+          <h1 className="text-xl font-bold">Smart Money Leaderboard</h1>
+          {loading && leaderboard.length === 0 && <div className="text-slate-400">Loading...</div>}
+          <div className="bg-slate-900 border border-slate-800 rounded overflow-hidden">
+            <table className="w-full text-xs">
+              <thead className="bg-slate-800 text-slate-300">
                 <tr>
-                  <th className="text-left py-2 px-3">Rank</th>
-                  <th className="text-left py-2 px-3">Trader</th>
-                  <th className="text-left py-2 px-3">Market</th>
-                  <th className="text-right py-2 px-3">Amount (USDC)</th>
-                  <th className="text-right py-2 px-3">Side</th>
-                  <th className="text-left py-2 px-3">Time</th>
+                  <th className="p-2 text-left">#</th>
+                  <th className="p-2 text-left">Wallet</th>
+                  <th className="p-2 text-right">Score</th>
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r, i) => {
-                  const isInsider = r.insider_flag;
-                  const ts = new Date(r.timestamp);
-                  const timeStr = ts.toLocaleTimeString(undefined, { hour12: false });
-                  const amountFmt = r.amount_usdc >= 1000
-                    ? `$${(r.amount_usdc / 1000).toFixed(1)}K`
-                    : formatNumber(r.amount_usdc, 2);
-                  return (
-                    <tr key={i} className="border-b border-slate-800 hover:bg-slate-800/50">
-                      <td className="py-2 px-3 text-slate-400">{i + 1}</td>
-                      <td className="py-2 px-3 font-mono">
-                        <span>{formatAddress(r.trader, 8, 6)}</span>
-                        <div className="flex items-center gap-2 mt-1 flex-wrap">
-                          {isInsider && (
-                            <span className="px-2 py-0.5 rounded-full text-xs bg-red-900/60 text-red-300 border border-red-700/50">INSIDER</span>
-                          )}
-                          {typeof r.smartscore === 'number' && (
-                            <span className="px-2 py-0.5 rounded-full text-xs bg-blue-900/50 text-blue-300 border border-blue-700/40">Score {r.smartscore.toFixed(1)}</span>
-                          )}
-                          {typeof r.entry_timing_score === 'number' && (
-                            <span className="px-2 py-0.5 rounded-full text-xs bg-emerald-900/40 text-emerald-300 border border-emerald-700/40">Entry {(r.entry_timing_score * 100).toFixed(0)}%</span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-2 px-3 max-w-[220px] truncate" title={r.market}>{r.market || '-'}</td>
-                      <td className="py-2 px-3 text-right tabular-nums">{amountFmt}</td>
-                      <td className="py-2 px-3 text-right uppercase">
-                        <span className={r.side === 'YES' ? 'text-green-400' : 'text-purple-300'}>{r.side}</span>
-                      </td>
-                      <td className="py-2 px-3 text-slate-300">{timeStr}</td>
-                    </tr>
-                  );
-                })}
+                {leaderboard.map(r => (
+                  <tr key={r.wallet} onClick={() => setSelected(r.wallet)} className={`cursor-pointer hover:bg-slate-800 ${selected===r.wallet?'bg-slate-800/70':''}`}> 
+                    <td className="p-2 text-slate-400">{r.rank}</td>
+                    <td className="p-2 font-mono">{r.wallet.slice(0,8)}...{r.wallet.slice(-4)}</td>
+                    <td className="p-2 text-right text-blue-400 font-semibold">{r.smartscore.toFixed(1)}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
-        )}
-        <footer className="mt-8 text-xs text-slate-500">資料來源 /api/smartmoney • 自動刷新 • 實驗性頁面</footer>
+        </div>
+        <div className="md:col-span-5 space-y-4">
+          <h2 className="text-xl font-semibold">Recent Smart Trades</h2>
+          <div className="space-y-2 max-h-[560px] overflow-y-auto pr-1">
+            {trades.map((t,i) => {
+              const ts = new Date(t.timestamp).toLocaleTimeString(undefined,{hour12:false});
+              return (
+                <div key={i} className="bg-slate-900 border border-slate-800 rounded p-3 text-xs flex justify-between">
+                  <div className="flex-1 mr-2">
+                    <div className="font-mono text-slate-300">{t.wallet.slice(0,8)}...{t.wallet.slice(-4)}</div>
+                    <div className="text-slate-400 truncate" title={t.market}>{t.market}</div>
+                  </div>
+                  <div className="text-right space-y-1">
+                    <div className={t.side==='YES'? 'text-green-400':'text-purple-300'}>{t.side} ${(t.amount_usdc||0).toFixed(0)}</div>
+                    <div className="text-blue-400">{t.smartscore?.toFixed(1)}</div>
+                    <div className="text-slate-500">{ts}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        <div className="md:col-span-3 space-y-4">
+          <h2 className="text-xl font-semibold">Wallet Detail</h2>
+          {!selected && <div className="text-slate-400 text-xs">Select a wallet from the leaderboard.</div>}
+          {walletDetail && (
+            <div className="space-y-3">
+              <div className="text-xs font-mono">{walletDetail.wallet}</div>
+              <div className="bg-slate-900 border border-slate-800 rounded p-2 text-xs">
+                <div className="font-semibold mb-1">ROI History</div>
+                <div className="max-h-40 overflow-y-auto space-y-1">
+                  {walletDetail.roiHistory.slice(-30).map((r,i)=>(
+                    <div key={i} className="flex justify-between">
+                      <span>{r.date.slice(5)}</span>
+                      <span className="text-green-400">{r.roi.toFixed(1)}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="bg-slate-900 border border-slate-800 rounded p-2 text-xs">
+                <div className="font-semibold mb-1">Recent Trades</div>
+                <div className="max-h-56 overflow-y-auto space-y-1">
+                  {walletDetail.recentTrades.slice(0,30).map((t,i)=>(
+                    <div key={i} className="flex justify-between">
+                      <span className="truncate" title={t.market}>{t.market.slice(0,18)}</span>
+                      <span className={t.side==='YES'?'text-green-400':'text-purple-300'}>{t.side} ${(t.amount||0).toFixed(0)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
+      <div className="mt-8 text-center text-[10px] text-slate-600">Auto-refresh 60s • MVP build</div>
     </div>
   );
 }
