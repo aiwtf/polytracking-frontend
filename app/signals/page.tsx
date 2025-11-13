@@ -17,30 +17,45 @@ export default function SignalsPage() {
   };
   useEffect(()=>{ load(); const id=setInterval(load,60000); return ()=>clearInterval(id); },[]);
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-100 p-6">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-2xl font-bold mb-4">Signals</h1>
-        <p className="text-slate-400 mb-4">Latest Telegram-worthy smart trades (Score ≥ 70). Refreshes every 60s.</p>
-        <a href="https://t.me/Polytracking" target="_blank" className="inline-block mb-6 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded text-sm">加入 Telegram 獲取即時訊號</a>
-        {loading && <div className="text-slate-400">Loading...</div>}
-        <div className="space-y-2">
+        <div className="mb-8 text-center">
+          <h1 className="text-5xl font-bold bg-gradient-to-r from-emerald-400 via-blue-400 to-violet-400 bg-clip-text text-transparent mb-3">🚨 Smart Signals</h1>
+          <p className="text-slate-400 text-base mb-6">Telegram-worthy trades with SmartScore ≥ 70 • Auto-refresh every 60s</p>
+          <a href="https://t.me/Polytracking" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-500 hover:to-violet-500 text-white px-6 py-3 rounded-full text-sm font-semibold shadow-lg shadow-blue-900/30 transition-all duration-300 hover:scale-105 hover:shadow-xl">
+            <span>📱 加入 Telegram 獲取即時訊號</span>
+          </a>
+        </div>
+        {loading && <div className="text-center py-12"><div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div></div>}
+        <div className="space-y-4">
           {trades.map((t,i)=>{
-            const ts = new Date(t.timestamp).toLocaleTimeString(undefined,{hour12:false});
+            const ts = new Date(t.timestamp).toLocaleTimeString(undefined,{hour12:false,hour:'2-digit',minute:'2-digit'});
             return (
-              <div key={i} className="bg-slate-900 border border-slate-800 rounded p-3 text-xs flex justify-between">
-                <div className="flex-1 mr-2 truncate" title={t.market}>
-                  <div className="font-mono">{t.wallet.slice(0,8)}...{t.wallet.slice(-4)}</div>
-                  <div className="text-slate-400 truncate">{t.market}</div>
-                </div>
-                <div className="text-right w-32">
-                  <div className={t.side==='YES'?'text-green-400':'text-purple-300'}>{t.side} ${(t.amount_usdc||0).toFixed(0)}</div>
-                  <div className="text-blue-400">{t.smartscore.toFixed(1)}</div>
-                  <div className="text-slate-500">{ts}</div>
+              <div key={i} className="bg-gradient-to-br from-slate-900/90 to-slate-900/50 backdrop-blur-sm border border-slate-800/50 rounded-xl p-5 shadow-xl hover:shadow-2xl hover:border-slate-700 transition-all duration-300 hover:scale-[1.02]">
+                <div className="flex justify-between items-start gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="bg-gradient-to-r from-blue-500 to-violet-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">Score: {t.smartscore.toFixed(1)}</div>
+                      <div className="text-slate-500 text-xs">{ts}</div>
+                    </div>
+                    <div className="font-mono text-sm text-blue-400 mb-2 hover:text-blue-300 transition-colors">{t.wallet.slice(0,8)}...{t.wallet.slice(-4)}</div>
+                    <div className="text-slate-300 text-sm leading-relaxed" title={t.market}>{t.market}</div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className={`text-xl font-bold mb-1 ${t.side==='YES'? 'text-emerald-400':'text-purple-400'}`}>{t.side}</div>
+                    <div className="text-2xl font-bold text-slate-200">${(t.amount_usdc||0).toLocaleString()}</div>
+                  </div>
                 </div>
               </div>
             );
           })}
-          {!loading && trades.length===0 && <div className="text-slate-500 text-xs">No signals ≥ 70 found.</div>}
+          {!loading && trades.length===0 && (
+            <div className="text-center py-16 bg-slate-900/30 border border-slate-800/30 rounded-xl">
+              <div className="text-6xl mb-4">🔍</div>
+              <div className="text-slate-400 text-sm">No signals with score ≥ 70 found at the moment.</div>
+              <div className="text-slate-500 text-xs mt-2">Check back soon!</div>
+            </div>
+          )}
         </div>
       </div>
     </div>
