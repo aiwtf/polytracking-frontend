@@ -2,10 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
-/* 確保背景色能延伸到全螢幕 */
 body {
-  background-color: #09090b;
-  /* zinc-950 */
-  color: #e4e4e7;
-  /* zinc-200 */
+  background-color: #f9fafb;
+  /* gray-50 */
+  color: #111827;
+  /* gray-900 */
 }
