@@ -8,7 +8,9 @@ import {
   Zap,
   Flame,
   Waves,
-  X
+  X,
+  CheckCircle2,
+  AlertCircle
 } from "lucide-react";
 
 interface Market {
@@ -64,6 +66,7 @@ export default function Home() {
       if (!res.ok) throw new Error("Connection failed");
       const data = await res.json();
       setMarkets(data);
+      if (error) setError(""); // Clear error on success
     } catch (err: any) {
       setError("Unable to connect to PolyTracking Backend.");
     } finally {
@@ -143,39 +146,71 @@ export default function Home() {
       <header className="h-16 flex items-center bg-white border-b border-gray-200 sticky top-0 z-50">
         <div className="mx-auto max-w-3xl w-full px-5 sm:px-8 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
+            <img src="/logo.png" alt="Logo" className="h-8 w-auto hidden" /> {/* Placeholder for logo if needed */}
             <div className="bg-black text-white p-1.5 rounded-lg">
               <Activity className="w-5 h-5" />
             </div>
             <h1 className="text-xl font-bold tracking-tight">PolyTracking</h1>
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium border ${!error ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
-              <div className={`w-2 h-2 rounded-full ${!error ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
-              {error ? "Disconnected" : "Connected"}
-            </div>
+          {/* Search Bar Placeholder (Visual only to match screenshot) */}
+          <div className="hidden sm:flex relative w-full max-w-xs ml-auto">
+            <input
+              type="text"
+              placeholder="Search markets..."
+              className="w-full bg-gray-100 border-none rounded-md py-1.5 px-3 text-sm focus:ring-0"
+              disabled
+            />
+            <Search className="absolute right-2 top-2 w-4 h-4 text-gray-400" />
           </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-3xl px-5 sm:px-8 py-10 sm:py-12">
 
-        {/* Intro */}
-        <section className="text-center sm:text-left mb-10">
+        {/* Hero Section (Centered) */}
+        <section className="text-center mb-10">
           <div className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1 text-xs text-gray-500 mb-4 shadow-sm">
-            <span className="size-2 rounded-full bg-blue-500 animate-pulse"></span>
-            Real-time Telegram alerts
+            <span className={`size-2 rounded-full ${!error ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></span>
+            {!error ? "System Online" : "System Offline"}
           </div>
           <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight mb-4 text-gray-900">
-            Market Monitor
+            PolyTracking
           </h1>
           <p className="text-lg sm:text-xl text-gray-500 leading-relaxed">
             Track Polymarket events and get instant volatility alerts.
           </p>
         </section>
 
+        {/* Status Card (Mimicking "Telegram alerts" card) */}
+        <section className="mb-10">
+          <div className="w-full rounded-xl border border-gray-200 bg-white p-4 sm:p-6 shadow-sm">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h3 className="text-base sm:text-lg font-semibold">Backend Status</h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  {error ? "Connection to backend server lost." : "Connected to PolyTracking Backend."}
+                </p>
+              </div>
+              <div>
+                <button
+                  className="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all border border-gray-200 bg-white shadow-sm hover:bg-gray-50 h-8 rounded-md px-3 text-gray-700"
+                  onClick={fetchMarkets}
+                >
+                  {loading ? "Checking..." : "Refresh"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* Add Market Form */}
         <section className="mb-10">
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
+              Add New Market
+            </h3>
+          </div>
           <div className="w-full rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
             <form onSubmit={handleAddMarket} className="flex flex-col sm:flex-row gap-2">
               <div className="flex-1 flex flex-col sm:flex-row gap-2">
@@ -209,12 +244,16 @@ export default function Home() {
         {/* Watchlist */}
         <section>
           <div className="flex items-center justify-between gap-2 mb-4">
-            <h3 className="text-lg font-semibold flex items-center gap-2">
+            <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
               Your watchlist
               <div className="inline-flex items-center rounded-full border border-gray-200 bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
                 {markets.length}
               </div>
             </h3>
+            <button className="inline-flex items-center justify-center whitespace-nowrap font-medium transition-all bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-md gap-1.5 text-xs h-8 px-3">
+              <Search className="w-3.5 h-3.5" />
+              Filters
+            </button>
           </div>
 
           <div className="flex flex-col gap-3">
@@ -228,64 +267,58 @@ export default function Home() {
                       {market.title.charAt(0).toUpperCase()}
                     </div>
                     <div className="min-w-0">
-                      <div className="font-medium truncate text-gray-900">
+                      <div className="font-medium truncate text-gray-900 text-sm sm:text-base">
                         {market.title}
                       </div>
                       <div className="text-xs text-gray-400 truncate font-mono mt-0.5">
-                        {market.asset_id.slice(0, 6)}...{market.asset_id.slice(-4)}
+                        Added on {new Date().toLocaleDateString()}
                       </div>
                     </div>
                   </div>
 
                   {/* Right: Controls */}
                   <div className="shrink-0 flex items-center gap-4 self-end sm:self-center">
-                    <div className="flex items-center gap-2 text-xs font-medium">
+                    <div className="flex items-center gap-2 text-xs font-medium text-gray-500">
 
                       {/* 1% Toggle */}
-                      <button
-                        onClick={() => toggleNotification(market.asset_id, 'notify_1pct', market.notify_1pct)}
-                        className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors border ${market.notify_1pct
-                            ? 'bg-blue-50 text-blue-700 border-blue-200'
-                            : 'bg-gray-50 text-gray-400 border-transparent hover:bg-gray-100'
-                          }`}
-                      >
-                        <Waves className="w-3 h-3" />
-                        &gt;1%
-                      </button>
+                      <label className="flex items-center gap-1 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={market.notify_1pct}
+                          onChange={() => toggleNotification(market.asset_id, 'notify_1pct', market.notify_1pct)}
+                          className="cursor-pointer size-3 accent-blue-600"
+                        />
+                        <span>&gt;1%</span>
+                      </label>
 
                       {/* 5% Toggle */}
-                      <button
-                        onClick={() => toggleNotification(market.asset_id, 'notify_5pct', market.notify_5pct)}
-                        className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors border ${market.notify_5pct
-                            ? 'bg-purple-50 text-purple-700 border-purple-200'
-                            : 'bg-gray-50 text-gray-400 border-transparent hover:bg-gray-100'
-                          }`}
-                      >
-                        <Zap className="w-3 h-3" />
-                        &gt;5%
-                      </button>
+                      <label className="flex items-center gap-1 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={market.notify_5pct}
+                          onChange={() => toggleNotification(market.asset_id, 'notify_5pct', market.notify_5pct)}
+                          className="cursor-pointer size-3 accent-purple-600"
+                        />
+                        <span>&gt;5%</span>
+                      </label>
 
                       {/* 10% Toggle */}
-                      <button
-                        onClick={() => toggleNotification(market.asset_id, 'notify_10pct', market.notify_10pct)}
-                        className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors border ${market.notify_10pct
-                            ? 'bg-red-50 text-red-700 border-red-200'
-                            : 'bg-gray-50 text-gray-400 border-transparent hover:bg-gray-100'
-                          }`}
-                      >
-                        <Flame className="w-3 h-3" />
-                        &gt;10%
-                      </button>
+                      <label className="flex items-center gap-1 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={market.notify_10pct}
+                          onChange={() => toggleNotification(market.asset_id, 'notify_10pct', market.notify_10pct)}
+                          className="cursor-pointer size-3 accent-red-600"
+                        />
+                        <span>&gt;10%</span>
+                      </label>
                     </div>
-
-                    <div className="w-px h-4 bg-gray-200"></div>
 
                     <button
                       onClick={() => handleDeleteMarket(market.asset_id)}
-                      className="text-gray-400 hover:text-red-600 transition-colors p-1"
-                      title="Unwatch"
+                      className="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all border border-gray-200 bg-white shadow-sm hover:bg-gray-50 h-8 rounded-md px-3 text-gray-700"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      Unwatch
                     </button>
                   </div>
                 </div>
