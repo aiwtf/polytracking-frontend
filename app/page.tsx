@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Search,
   Activity,
@@ -52,7 +52,7 @@ export default function Home() {
   const [newTitle, setNewTitle] = useState("");
   const [adding, setAdding] = useState(false);
 
-  const fetchMarkets = async () => {
+  const fetchMarkets = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch(`${API_URL}/api/markets`);
@@ -60,18 +60,18 @@ export default function Home() {
       const data = await res.json();
       setMarkets(data);
       if (error) setError(""); // Clear error on success
-    } catch (err: any) {
+    } catch {
       setError("Unable to connect to PolyTracking Backend.");
     } finally {
       setLoading(false);
     }
-  };
+  }, [error]);
 
   useEffect(() => {
     fetchMarkets();
     const interval = setInterval(fetchMarkets, 15000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchMarkets]);
 
   const handleAddMarket = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,11 +93,10 @@ export default function Home() {
       });
       if (!res.ok) throw new Error("Failed to add market");
 
-      setNewAssetId("");
       setNewTitle("");
       fetchMarkets();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError((err as Error).message);
     } finally {
       setAdding(false);
     }
@@ -108,7 +107,7 @@ export default function Home() {
     try {
       await fetch(`${API_URL}/api/markets/${assetId}`, { method: "DELETE" });
       setMarkets(markets.filter(m => m.asset_id !== assetId));
-    } catch (err) {
+    } catch {
       alert("Failed to delete");
     }
   };
@@ -124,7 +123,7 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ [type]: !currentValue }),
       });
-    } catch (err) {
+    } catch {
       setMarkets(markets.map(m =>
         m.asset_id === assetId ? { ...m, [type]: currentValue } : m
       ));
