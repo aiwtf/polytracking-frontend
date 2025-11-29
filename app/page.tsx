@@ -2,15 +2,8 @@
 
 import { useState, useEffect } from "react";
 import {
-  Trash2,
   Search,
   Activity,
-  Zap,
-  Flame,
-  Waves,
-  X,
-  CheckCircle2,
-  AlertCircle
 } from "lucide-react";
 
 interface Market {
@@ -146,7 +139,6 @@ export default function Home() {
       <header className="h-16 flex items-center bg-white border-b border-gray-200 sticky top-0 z-50">
         <div className="mx-auto max-w-3xl w-full px-5 sm:px-8 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="Logo" className="h-8 w-auto hidden" /> {/* Placeholder for logo if needed */}
             <div className="bg-black text-white p-1.5 rounded-lg">
               <Activity className="w-5 h-5" />
             </div>
@@ -158,10 +150,10 @@ export default function Home() {
             <input
               type="text"
               placeholder="Search markets..."
-              className="w-full bg-gray-100 border-none rounded-md py-1.5 px-3 text-sm focus:ring-0"
+              className="w-full bg-white border border-gray-200 rounded-xl py-2 px-4 text-sm focus:ring-2 focus:ring-black focus:border-transparent outline-none placeholder:text-gray-400 transition-all shadow-sm"
               disabled
             />
-            <Search className="absolute right-2 top-2 w-4 h-4 text-gray-400" />
+            <Search className="absolute right-3 top-2.5 w-4 h-4 text-gray-400" />
           </div>
         </div>
       </header>
@@ -185,7 +177,7 @@ export default function Home() {
         {/* Status Card (Mimicking "Telegram alerts" card) */}
         <section className="mb-10">
           <div className="w-full rounded-xl border border-gray-200 bg-white p-4 sm:p-6 shadow-sm">
-            <div className="flex items-center justify-between gap-4">
+            <div className="flex flex-col gap-4">
               <div>
                 <h3 className="text-base sm:text-lg font-semibold">Backend Status</h3>
                 <p className="text-xs text-gray-500 mt-1">
@@ -194,7 +186,7 @@ export default function Home() {
               </div>
               <div>
                 <button
-                  className="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all border border-gray-200 bg-white shadow-sm hover:bg-gray-50 h-8 rounded-md px-3 text-gray-700"
+                  className="w-full inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all border border-gray-200 bg-white shadow-sm hover:bg-gray-50 h-10 rounded-xl px-4 text-gray-700"
                   onClick={fetchMarkets}
                 >
                   {loading ? "Checking..." : "Refresh"}
@@ -211,29 +203,26 @@ export default function Home() {
               Add New Market
             </h3>
           </div>
-          <div className="w-full rounded-xl border border-gray-200 bg-white p-2 shadow-sm">
-            <form onSubmit={handleAddMarket} className="flex flex-col sm:flex-row gap-2">
-              <div className="flex-1 flex flex-col sm:flex-row gap-2">
-                <input
-                  type="text"
-                  placeholder="Market Title (e.g. Will Trump Win?)"
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  className="flex-1 bg-transparent border-none focus:ring-0 text-sm px-4 py-3 outline-none placeholder:text-gray-400"
-                />
-                <div className="w-px h-6 bg-gray-200 self-center hidden sm:block"></div>
-                <input
-                  type="text"
-                  placeholder="Asset ID (0x...)"
-                  value={newAssetId}
-                  onChange={(e) => setNewAssetId(e.target.value)}
-                  className="flex-1 bg-transparent border-none focus:ring-0 text-sm px-4 py-3 outline-none font-mono placeholder:text-gray-400"
-                />
-              </div>
+          <div className="w-full">
+            <form onSubmit={handleAddMarket} className="flex flex-col gap-3">
+              <input
+                type="text"
+                placeholder="Market Title (e.g. Will Trump Win?)"
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm focus:ring-2 focus:ring-black focus:border-transparent outline-none placeholder:text-gray-400 transition-all"
+              />
+              <input
+                type="text"
+                placeholder="Asset ID (0x...)"
+                value={newAssetId}
+                onChange={(e) => setNewAssetId(e.target.value)}
+                className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm focus:ring-2 focus:ring-black focus:border-transparent outline-none font-mono placeholder:text-gray-400 transition-all"
+              />
               <button
                 type="submit"
                 disabled={adding}
-                className="bg-black text-white px-6 py-2 rounded-lg font-medium text-sm hover:bg-gray-800 transition-colors disabled:opacity-50 shrink-0 m-1"
+                className="bg-black text-white px-6 py-3 rounded-xl font-medium text-sm hover:bg-gray-800 transition-colors disabled:opacity-50 shadow-sm whitespace-nowrap"
               >
                 {adding ? "Adding..." : "Watch"}
               </button>
@@ -250,7 +239,7 @@ export default function Home() {
                 {markets.length}
               </div>
             </h3>
-            <button className="inline-flex items-center justify-center whitespace-nowrap font-medium transition-all bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-md gap-1.5 text-xs h-8 px-3">
+            <button className="inline-flex items-center justify-center whitespace-nowrap font-medium transition-all bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-xl gap-2 text-xs h-9 px-4 shadow-sm">
               <Search className="w-3.5 h-3.5" />
               Filters
             </button>
@@ -259,9 +248,9 @@ export default function Home() {
           <div className="flex flex-col gap-3">
             {markets.map((market) => (
               <div key={market.asset_id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex flex-col gap-4">
 
-                  {/* Left: Avatar & Info */}
+                  {/* Top: Avatar & Info */}
                   <div className="flex items-center gap-3 min-w-0">
                     <div className={`shrink-0 size-10 rounded-full flex items-center justify-center text-sm font-bold ${getAvatarColor(market.title)}`}>
                       {market.title.charAt(0).toUpperCase()}
@@ -276,8 +265,8 @@ export default function Home() {
                     </div>
                   </div>
 
-                  {/* Right: Controls */}
-                  <div className="shrink-0 flex items-center gap-4 self-end sm:self-center">
+                  {/* Bottom: Controls */}
+                  <div className="w-full flex items-center justify-between gap-4">
                     <div className="flex items-center gap-2 text-xs font-medium text-gray-500">
 
                       {/* 1% Toggle */}
@@ -316,7 +305,7 @@ export default function Home() {
 
                     <button
                       onClick={() => handleDeleteMarket(market.asset_id)}
-                      className="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all border border-gray-200 bg-white shadow-sm hover:bg-gray-50 h-8 rounded-md px-3 text-gray-700"
+                      className="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all border border-gray-200 bg-white shadow-sm hover:bg-gray-50 h-9 rounded-xl px-4 text-gray-700"
                     >
                       Unwatch
                     </button>
