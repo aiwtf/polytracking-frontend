@@ -1,331 +1,496 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useUser, SignInButton, UserButton } from "@clerk/nextjs";
+import { useDebounce } from "use-debounce";
 import {
   Search,
+  Plus,
+  Trash2,
+  Bell,
+  Zap,
   Activity,
+  Droplets,
+  Fish,
+  Anchor,
+  CheckCircle,
+  X
 } from "lucide-react";
 
-interface Market {
-  asset_id: string;
+// Use the URL provided by the user or fallback to localhost
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://polytracking-backend-tv7j.onrender.com";
+const BOT_USERNAME = "@PolytrackingBot";
+
+// --- Types ---
+interface SearchResult {
   title: string;
-  is_active: boolean;
-  notify_1pct: boolean;
-  notify_5pct: boolean;
-  notify_10pct: boolean;
+  image: string;
+  options: {
+    name: string;
+    asset_id: string;
+    current_price: number;
+  }[];
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://polytracking-backend-tv7j.onrender.com";
+interface Subscription {
+  id: number;
+  asset_id: string;
+  title: string;
+  target_outcome: string;
+  notify_0_5pct: boolean;
+  notify_2pct: boolean;
+  notify_5pct: boolean;
+  notify_whale_10k: boolean;
+  notify_whale_50k: boolean;
+  notify_liquidity: boolean;
+  user?: {
+    telegram_chat_id: string | null;
+  };
+}
 
-// Helper to generate consistent avatar colors
-const getAvatarColor = (name: string) => {
-  const colors = [
-    "bg-red-100 text-red-600",
-    "bg-orange-100 text-orange-600",
-    "bg-amber-100 text-amber-600",
-    "bg-green-100 text-green-600",
-    "bg-emerald-100 text-emerald-600",
-    "bg-teal-100 text-teal-600",
-    "bg-cyan-100 text-cyan-600",
-    "bg-blue-100 text-blue-600",
-    "bg-indigo-100 text-indigo-600",
-    "bg-violet-100 text-violet-600",
-    "bg-purple-100 text-purple-600",
-    "bg-fuchsia-100 text-fuchsia-600",
-    "bg-pink-100 text-pink-600",
-    "bg-rose-100 text-rose-600",
-  ];
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return colors[Math.abs(hash) % colors.length];
+interface TrackingConfig {
+  notify_0_5pct: boolean;
+  notify_2pct: boolean;
+  notify_5pct: boolean;
+  notify_whale_10k: boolean;
+  notify_whale_50k: boolean;
+  notify_liquidity: boolean;
+}
+
+const DEFAULT_CONFIG: TrackingConfig = {
+  notify_0_5pct: false,
+  notify_2pct: true, // Default
+  notify_5pct: false,
+  notify_whale_10k: false,
+  notify_whale_50k: false,
+  notify_liquidity: false,
 };
 
-export default function Home() {
-  const [markets, setMarkets] = useState<Market[]>([]);
+export default function Dashboard() {
+  const { user, isLoaded, isSignedIn } = useUser();
+
+  // State
+  const [telegramConnected, setTelegramConnected] = useState(false);
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
 
-  // Form State
-  const [newAssetId, setNewAssetId] = useState("");
-  const [newTitle, setNewTitle] = useState("");
-  const [adding, setAdding] = useState(false);
+  // Fetch Data
+  const fetchData = useCallback(async () => {
+    if (!user) return;
+    try {
+      // Fetch User Status
+      const statusRes = await fetch(`${API_URL}/api/user/status?clerk_user_id=${user.id}`);
+      if (statusRes.ok) {
+        const statusData = await statusRes.json();
+        setTelegramConnected(statusData.telegram_connected);
+      }
 
-  const fetchMarkets = useCallback(async () => {
+      // Fetch Subscriptions
+      const subRes = await fetch(`${API_URL}/api/subscriptions?clerk_user_id=${user.id}`);
+      if (subRes.ok) {
+        const data = await subRes.json();
+        setSubscriptions(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch data", err);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (isSignedIn) {
+      fetchData();
+    }
+  }, [isSignedIn, fetchData]);
+
+  // Render Loading
+  if (!isLoaded) return <div className="flex h-screen items-center justify-center">Loading...</div>;
+
+  // Render Landing Page
+  if (!isSignedIn) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center bg-gray-50 p-4">
+        <div className="text-center max-w-md">
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">PolyTracking SaaS</h1>
+          <p className="text-gray-600 mb-8">
+            Track Polymarket whales, liquidity spikes, and price surges in real-time.
+            Get instant alerts on Telegram.
+          </p>
+          <div className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition">
+            <SignInButton mode="modal" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 text-gray-900 font-sans flex flex-col items-center">
+      {/* Header */}
+      <header className="w-full bg-white border-b border-gray-200 sticky top-0 z-10">
+        <div className="max-w-3xl mx-auto px-4 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Activity className="text-blue-600" />
+            <span className="font-bold text-xl tracking-tight">PolyTracking</span>
+          </div>
+          <UserButton />
+        </div>
+      </header>
+
+      <main className="w-full max-w-3xl px-4 py-6 space-y-6 flex-1">
+
+        {/* 1. Telegram Connection */}
+        <TelegramSection userId={user.id} connected={telegramConnected} />
+
+        {/* 2. Market Search */}
+        <SearchSection userId={user.id} onSubscribe={fetchData} />
+
+        {/* 3. Subscription List */}
+        <SubscriptionList subscriptions={subscriptions} userId={user.id} onUpdate={fetchData} />
+
+      </main>
+    </div>
+  );
+}
+
+// --- Components ---
+
+function TelegramSection({ userId, connected }: { userId: string, connected: boolean }) {
+  const [token, setToken] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleConnect = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/markets`);
-      if (!res.ok) throw new Error("Connection failed");
+      const res = await fetch(`${API_URL}/api/connect_telegram`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clerk_user_id: userId }),
+      });
       const data = await res.json();
-      setMarkets(data);
-      if (error) setError(""); // Clear error on success
-    } catch {
-      setError("Unable to connect to PolyTracking Backend.");
+      if (data.status === "success") {
+        setToken(data.connection_token);
+        window.open(`https://t.me/${BOT_USERNAME.replace('@', '')}?start=${data.connection_token}`, "_blank");
+      }
+    } catch (err) {
+      alert("Failed to connect Telegram");
     } finally {
       setLoading(false);
     }
-  }, [error]);
+  };
+
+  const handleDisconnect = async () => {
+    // Placeholder for disconnect logic if needed, or just UI for now as requested
+    // For now, we don't have a disconnect endpoint, so maybe just show alert or do nothing
+    // The user asked for UI layout.
+    alert("Disconnect feature coming soon!");
+  };
+
+  return (
+    <section className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 flex items-center justify-between">
+      <div>
+        <h2 className="text-lg font-semibold text-gray-900">
+          Telegram alerts
+        </h2>
+        <p className="text-xs text-gray-500 mt-0.5">
+          Receive real-time notifications via <span className="text-blue-600">@polytrackingbot</span>
+        </p>
+      </div>
+
+      {connected ? (
+        <button
+          onClick={handleDisconnect}
+          className="bg-white text-gray-700 border border-gray-200 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition"
+        >
+          Disconnect
+        </button>
+      ) : (
+        <button
+          onClick={handleConnect}
+          disabled={loading}
+          className="bg-black text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-800 transition"
+        >
+          {loading ? "..." : "Connect"}
+        </button>
+      )}
+    </section>
+  );
+}
+
+function SearchSection({ userId, onSubscribe }: { userId: string, onSubscribe: () => void }) {
+  const [query, setQuery] = useState("");
+  const [debouncedQuery] = useDebounce(query, 500);
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [selectedOption, setSelectedOption] = useState<{ title: string, name: string, asset_id: string } | null>(null);
 
   useEffect(() => {
-    fetchMarkets();
-    const interval = setInterval(fetchMarkets, 15000);
-    return () => clearInterval(interval);
-  }, [fetchMarkets]);
+    if (!debouncedQuery) {
+      setResults([]);
+      return;
+    }
+    setSearching(true);
+    fetch(`${API_URL}/api/proxy/search?q=${encodeURIComponent(debouncedQuery)}`)
+      .then(res => res.json())
+      .then(data => setResults(data))
+      .catch(err => console.error(err))
+      .finally(() => setSearching(false));
+  }, [debouncedQuery]);
 
-  const handleAddMarket = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newAssetId || !newTitle) return;
+  return (
+    <section className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+      <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+        <Search className="text-gray-500" size={20} />
+        Find Markets
+      </h2>
 
-    setAdding(true);
-    setError("");
+      <div className="relative">
+        <input
+          type="text"
+          placeholder="Search (e.g. 'Bitcoin', 'Election')..."
+          className="w-full p-3 pl-10 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        <Search className="absolute left-3 top-3.5 text-gray-400" size={18} />
+      </div>
+
+      {searching && <div className="mt-4 text-center text-gray-400 text-sm">Searching...</div>}
+
+      <div className="mt-4 space-y-3">
+        {results.map((result, idx) => (
+          <div key={idx} className="flex items-center gap-4 p-3 hover:bg-gray-50 rounded-lg transition border border-transparent hover:border-gray-100">
+            <img src={result.image} alt="" className="w-12 h-12 rounded-full object-cover bg-gray-200" />
+            <div className="flex-1 min-w-0">
+              <h3 className="font-medium text-gray-900 truncate">{result.title}</h3>
+              <div className="mt-2 flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                {result.options.map((opt) => (
+                  <button
+                    key={opt.asset_id}
+                    onClick={() => setSelectedOption({ title: result.title, name: opt.name, asset_id: opt.asset_id })}
+                    className="px-3 py-1 rounded-md text-sm font-medium border border-gray-200 hover:border-blue-500 hover:text-blue-600 transition whitespace-nowrap flex-shrink-0"
+                  >
+                    {opt.name} <span className="text-gray-400 text-xs ml-1">${opt.current_price.toFixed(2)}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {selectedOption && (
+        <TrackingModal
+          option={selectedOption}
+          userId={userId}
+          onClose={() => setSelectedOption(null)}
+          onSuccess={() => {
+            setSelectedOption(null);
+            setQuery("");
+            onSubscribe();
+          }}
+        />
+      )}
+    </section>
+  );
+}
+
+function TrackingModal({ option, userId, onClose, onSuccess }: { option: { title: string, name: string, asset_id: string }, userId: string, onClose: () => void, onSuccess: () => void }) {
+  const [config, setConfig] = useState<TrackingConfig>(DEFAULT_CONFIG);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    setSubmitting(true);
     try {
-      const res = await fetch(`${API_URL}/api/markets`, {
+      await fetch(`${API_URL}/api/subscribe`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          asset_id: newAssetId,
-          title: newTitle,
-          notify_1pct: false,
-          notify_5pct: true,
-          notify_10pct: true
+          clerk_user_id: userId,
+          asset_id: option.asset_id,
+          title: option.title,
+          target_outcome: option.name,
+          ...config
         }),
       });
-      if (!res.ok) throw new Error("Failed to add market");
-
-      setNewTitle("");
-      fetchMarkets();
+      onSuccess();
     } catch (err) {
-      setError((err as Error).message);
+      alert("Failed to track");
     } finally {
-      setAdding(false);
-    }
-  };
-
-  const handleDeleteMarket = async (assetId: string) => {
-    if (!confirm("Stop tracking this market?")) return;
-    try {
-      await fetch(`${API_URL}/api/markets/${assetId}`, { method: "DELETE" });
-      setMarkets(markets.filter(m => m.asset_id !== assetId));
-    } catch {
-      alert("Failed to delete");
-    }
-  };
-
-  const toggleNotification = async (assetId: string, type: 'notify_1pct' | 'notify_5pct' | 'notify_10pct', currentValue: boolean) => {
-    setMarkets(markets.map(m =>
-      m.asset_id === assetId ? { ...m, [type]: !currentValue } : m
-    ));
-
-    try {
-      await fetch(`${API_URL}/api/markets/${assetId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ [type]: !currentValue }),
-      });
-    } catch {
-      setMarkets(markets.map(m =>
-        m.asset_id === assetId ? { ...m, [type]: currentValue } : m
-      ));
-      alert("Failed to update setting");
+      setSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900 font-sans selection:bg-gray-200">
-
-      {/* Header */}
-      <header className="h-16 flex items-center bg-white border-b border-gray-200 sticky top-0 z-50">
-        <div className="mx-auto max-w-3xl w-full px-5 sm:px-8 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="bg-black text-white p-1.5 rounded-lg">
-              <Activity className="w-5 h-5" />
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl max-w-sm w-full p-6 shadow-2xl animate-in fade-in zoom-in duration-200">
+        <div className="flex justify-between items-start mb-4">
+          <div>
+            <h3 className="text-lg font-bold text-gray-900">Track Market</h3>
+            <p className="text-sm text-gray-500 mt-1">{option.title}</p>
+            <div className="mt-2 inline-block bg-blue-100 text-blue-700 text-xs font-bold px-2 py-0.5 rounded">
+              {option.name}
             </div>
-            <h1 className="text-xl font-bold tracking-tight">PolyTracking</h1>
           </div>
-
-          {/* Search Bar Placeholder (Visual only to match screenshot) */}
-          <div className="hidden sm:flex relative w-full max-w-xs ml-auto">
-            <input
-              type="text"
-              placeholder="Search markets..."
-              className="w-full bg-white border border-gray-200 rounded-xl py-2 px-4 text-sm focus:ring-2 focus:ring-black focus:border-transparent outline-none placeholder:text-gray-400 transition-all shadow-sm"
-              disabled
-            />
-            <Search className="absolute right-3 top-2.5 w-4 h-4 text-gray-400" />
-          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <X size={20} />
+          </button>
         </div>
-      </header>
 
-      <main className="mx-auto max-w-3xl px-5 sm:px-8 py-10 sm:py-12">
+        <div className="space-y-3 mb-6">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Notify me when:</p>
 
-        {/* Hero Section (Centered) */}
-        <section className="text-center mb-10">
-          <div className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1 text-xs text-gray-500 mb-4 shadow-sm">
-            <span className={`size-2 rounded-full ${!error ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></span>
-            {!error ? "System Online" : "System Offline"}
-          </div>
-          <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight mb-4 text-gray-900">
-            PolyTracking
-          </h1>
-          <p className="text-lg sm:text-xl text-gray-500 leading-relaxed">
-            Track Polymarket events and get instant volatility alerts.
-          </p>
-        </section>
+          <Checkbox
+            label="Price changes > 0.5%"
+            checked={config.notify_0_5pct}
+            onChange={(c) => setConfig(p => ({ ...p, notify_0_5pct: c }))}
+          />
+          <Checkbox
+            label="Price changes > 2%"
+            checked={config.notify_2pct}
+            onChange={(c) => setConfig(p => ({ ...p, notify_2pct: c }))}
+          />
+          <Checkbox
+            label="Price changes > 5%"
+            checked={config.notify_5pct}
+            onChange={(c) => setConfig(p => ({ ...p, notify_5pct: c }))}
+          />
+          <div className="h-px bg-gray-100 my-2"></div>
+          <Checkbox
+            label="Whale buys > $10k"
+            checked={config.notify_whale_10k}
+            onChange={(c) => setConfig(p => ({ ...p, notify_whale_10k: c }))}
+          />
+          <Checkbox
+            label="Whale buys > $50k"
+            checked={config.notify_whale_50k}
+            onChange={(c) => setConfig(p => ({ ...p, notify_whale_50k: c }))}
+          />
+        </div>
 
-        {/* Status Card (Mimicking "Telegram alerts" card) */}
-        <section className="mb-10">
-          <div className="w-full rounded-xl border border-gray-200 bg-white p-4 sm:p-6 shadow-sm">
-            <div className="flex flex-col gap-4">
-              <div>
-                <h3 className="text-base sm:text-lg font-semibold">Backend Status</h3>
-                <p className="text-xs text-gray-500 mt-1">
-                  {error ? "Connection to backend server lost." : "Connected to PolyTracking Backend."}
-                </p>
+        <button
+          onClick={handleSubmit}
+          disabled={submitting}
+          className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition"
+        >
+          {submitting ? "Saving..." : "Start Tracking"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SubscriptionList({ subscriptions, userId, onUpdate }: { subscriptions: Subscription[], userId: string, onUpdate: () => void }) {
+  const handleToggle = async (id: number, field: keyof TrackingConfig, value: boolean) => {
+    // Optimistic update could be done here in parent state, but for simplicity we just call API and refresh
+    try {
+      await fetch(`${API_URL}/api/subscriptions/${id}?clerk_user_id=${userId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [field]: value }),
+      });
+      onUpdate();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm("Stop tracking this market?")) return;
+    try {
+      await fetch(`${API_URL}/api/subscriptions/${id}?clerk_user_id=${userId}`, {
+        method: "DELETE",
+      });
+      onUpdate();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  return (
+    <section>
+      <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 px-1">
+        <Bell className="text-gray-500" size={20} />
+        Your Watchlist ({subscriptions.length})
+      </h2>
+
+      <div className="grid gap-4">
+        {subscriptions.map((sub) => (
+          <div key={sub.id} className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
+
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wide">
+                  {sub.target_outcome}
+                </span>
+                <span className="text-xs text-gray-400 font-mono">{sub.asset_id.slice(0, 8)}...</span>
               </div>
-              <div>
-                <button
-                  className="w-full inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all border border-gray-200 bg-white shadow-sm hover:bg-gray-50 h-10 rounded-xl px-4 text-gray-700"
-                  onClick={fetchMarkets}
-                >
-                  {loading ? "Checking..." : "Refresh"}
-                </button>
-              </div>
+              <h3 className="font-semibold text-gray-900 leading-tight">{sub.title}</h3>
             </div>
-          </div>
-        </section>
 
-        {/* Add Market Form */}
-        <section className="mb-10">
-          <div className="flex items-center justify-between gap-2 mb-3">
-            <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
-              Add New Market
-            </h3>
-          </div>
-          <div className="w-full">
-            <form onSubmit={handleAddMarket} className="flex flex-col gap-3">
-              <input
-                type="text"
-                placeholder="Market Title (e.g. Will Trump Win?)"
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-                className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm focus:ring-2 focus:ring-black focus:border-transparent outline-none placeholder:text-gray-400 transition-all"
-              />
-              <input
-                type="text"
-                placeholder="Asset ID (0x...)"
-                value={newAssetId}
-                onChange={(e) => setNewAssetId(e.target.value)}
-                className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm focus:ring-2 focus:ring-black focus:border-transparent outline-none font-mono placeholder:text-gray-400 transition-all"
-              />
-              <button
-                type="submit"
-                disabled={adding}
-                className="bg-black text-white px-6 py-3 rounded-xl font-medium text-sm hover:bg-gray-800 transition-colors disabled:opacity-50 shadow-sm whitespace-nowrap"
-              >
-                {adding ? "Adding..." : "Watch"}
-              </button>
-            </form>
-          </div>
-        </section>
+            <div className="flex flex-wrap items-center gap-2">
+              <Toggle label="0.5%" active={sub.notify_0_5pct} onClick={() => handleToggle(sub.id, 'notify_0_5pct', !sub.notify_0_5pct)} />
+              <Toggle label="2%" active={sub.notify_2pct} onClick={() => handleToggle(sub.id, 'notify_2pct', !sub.notify_2pct)} />
+              <Toggle label="5%" active={sub.notify_5pct} onClick={() => handleToggle(sub.id, 'notify_5pct', !sub.notify_5pct)} />
+              <div className="w-px h-6 bg-gray-200 mx-1 hidden md:block"></div>
+              <Toggle icon={<Fish size={14} />} label="10k" active={sub.notify_whale_10k} onClick={() => handleToggle(sub.id, 'notify_whale_10k', !sub.notify_whale_10k)} />
+              <Toggle icon={<Anchor size={14} />} label="50k" active={sub.notify_whale_50k} onClick={() => handleToggle(sub.id, 'notify_whale_50k', !sub.notify_whale_50k)} />
+            </div>
 
-        {/* Watchlist */}
-        <section>
-          <div className="flex items-center justify-between gap-2 mb-4">
-            <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
-              Your watchlist
-              <div className="inline-flex items-center rounded-full border border-gray-200 bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
-                {markets.length}
-              </div>
-            </h3>
-            <button className="inline-flex items-center justify-center whitespace-nowrap font-medium transition-all bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 rounded-xl gap-2 text-xs h-9 px-4 shadow-sm">
-              <Search className="w-3.5 h-3.5" />
-              Filters
+            <button
+              onClick={() => handleDelete(sub.id)}
+              className="text-gray-300 hover:text-red-500 p-2 transition self-end md:self-center"
+            >
+              <Trash2 size={18} />
             </button>
           </div>
+        ))}
 
-          <div className="flex flex-col gap-3">
-            {markets.map((market) => (
-              <div key={market.asset_id} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex flex-col gap-4">
-
-                  {/* Top: Avatar & Info */}
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className={`shrink-0 size-10 rounded-full flex items-center justify-center text-sm font-bold ${getAvatarColor(market.title)}`}>
-                      {market.title.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="font-medium truncate text-gray-900 text-sm sm:text-base">
-                        {market.title}
-                      </div>
-                      <div className="text-xs text-gray-400 truncate font-mono mt-0.5">
-                        Added on {new Date().toLocaleDateString()}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Bottom: Controls */}
-                  <div className="w-full flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-2 text-xs font-medium text-gray-500">
-
-                      {/* 1% Toggle */}
-                      <label className="flex items-center gap-1 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={market.notify_1pct}
-                          onChange={() => toggleNotification(market.asset_id, 'notify_1pct', market.notify_1pct)}
-                          className="cursor-pointer size-3 accent-blue-600"
-                        />
-                        <span>&gt;1%</span>
-                      </label>
-
-                      {/* 5% Toggle */}
-                      <label className="flex items-center gap-1 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={market.notify_5pct}
-                          onChange={() => toggleNotification(market.asset_id, 'notify_5pct', market.notify_5pct)}
-                          className="cursor-pointer size-3 accent-purple-600"
-                        />
-                        <span>&gt;5%</span>
-                      </label>
-
-                      {/* 10% Toggle */}
-                      <label className="flex items-center gap-1 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={market.notify_10pct}
-                          onChange={() => toggleNotification(market.asset_id, 'notify_10pct', market.notify_10pct)}
-                          className="cursor-pointer size-3 accent-red-600"
-                        />
-                        <span>&gt;10%</span>
-                      </label>
-                    </div>
-
-                    <button
-                      onClick={() => handleDeleteMarket(market.asset_id)}
-                      className="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-all border border-gray-200 bg-white shadow-sm hover:bg-gray-50 h-9 rounded-xl px-4 text-gray-700"
-                    >
-                      Unwatch
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-
-            {markets.length === 0 && !loading && (
-              <div className="text-center py-12 bg-white rounded-xl border border-dashed border-gray-200">
-                <div className="bg-gray-50 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <Search className="w-5 h-5 text-gray-400" />
-                </div>
-                <h3 className="text-sm font-medium text-gray-900">No markets tracked</h3>
-                <p className="text-xs text-gray-500 mt-1">Add a market ID above to start monitoring.</p>
-              </div>
-            )}
+        {subscriptions.length === 0 && (
+          <div className="text-center py-12 bg-white rounded-xl border border-dashed border-gray-300">
+            <p className="text-gray-500">No markets tracked yet. Search above to add one!</p>
           </div>
-        </section>
+        )}
+      </div>
+    </section>
+  );
+}
 
-      </main>
-    </div>
+// --- Helpers ---
+
+function Toggle({ label, icon, active, onClick }: { label: string, icon?: React.ReactNode, active: boolean, onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`
+        flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium transition border
+        ${active
+          ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+          : "bg-white text-gray-500 border-gray-200 hover:bg-gray-50"
+        }
+      `}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+function Checkbox({ label, checked, onChange }: { label: string, checked: boolean, onChange: (c: boolean) => void }) {
+  return (
+    <label className="flex items-center gap-3 cursor-pointer group">
+      <div className={`
+        w-5 h-5 rounded border flex items-center justify-center transition
+        ${checked ? "bg-blue-600 border-blue-600" : "bg-white border-gray-300 group-hover:border-blue-400"}
+      `}>
+        {checked && <CheckCircle size={14} className="text-white" />}
+      </div>
+      <input
+        type="checkbox"
+        className="hidden"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      <span className="text-sm text-gray-700">{label}</span>
+    </label>
   );
 }
