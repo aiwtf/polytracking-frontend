@@ -477,17 +477,45 @@ function SubscriptionList({ subscriptions, userId, onUpdate }: { subscriptions: 
         if (field === 'notify_whale_50k') { updates.notify_whale_10k = false; }
       }
 
-      await fetch(`${API_URL}/api/subscriptions/${id}?clerk_user_id=${userId}`, {
+      const res = await fetch(`${API_URL}/api/subscriptions/${id}?clerk_user_id=${userId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updates),
       });
 
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        const errMsg = errData.detail || res.statusText || "Unknown error";
+        throw new Error(`Server returned ${res.status}: ${errMsg}`);
+      }
+
       onUpdate();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
       setOptimisticSubs(subscriptions);
-      alert("Failed to update setting.");
+      alert(`Failed to update setting: ${err.message}`);
+    }
+  };
+
+  const handleDisconnect = async () => {
+    if (!userId) return;
+    if (!confirm("Disconnect Telegram? You will stop receiving alerts.")) return;
+
+    try {
+      const res = await fetch(`${API_URL}/api/disconnect_telegram`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clerk_user_id: userId }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to disconnect");
+      }
+
+      onUpdate(); // Refresh status
+      alert("Telegram disconnected.");
+    } catch (err) {
+      alert("Failed to disconnect.");
     }
   };
 
