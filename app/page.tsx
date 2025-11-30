@@ -192,7 +192,25 @@ function TelegramSection({ userId, connected, onStatusChange }: { userId: string
   };
 
   const handleDisconnect = async () => {
-    alert("Disconnect feature coming soon!");
+    if (!userId) return;
+    if (!confirm("Disconnect Telegram? You will stop receiving alerts.")) return;
+
+    try {
+      const res = await fetch(`${API_URL}/api/disconnect_telegram`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clerk_user_id: userId }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to disconnect");
+      }
+
+      onStatusChange(); // Refresh status
+      alert("Telegram disconnected.");
+    } catch (err) {
+      alert("Failed to disconnect.");
+    }
   };
 
   return (
